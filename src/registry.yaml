@@ -1,0 +1,6 @@
+available_models:
+  - name: "custom_drafter_v1"
+    path: "./user_scripts/my_custom_model.py"
+    init_func: "load_everything"       # Loads weights + tokenizer
+    tokenizer_func: "custom_tokenize"  # Handles text -> tensors
+    gen_func: "run_inference"          # Handles tensors -> latents
