@@ -1,0 +1,43 @@
+# ---------------------------------------------------
+# 1. Python Core Files
+# ---------------------------------------------------
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# ---------------------------------------------------
+# 2. Virtual Environments
+# ---------------------------------------------------
+# Ignore local isolated Python environments
+venv/
+.venv/
+env/
+.env
+
+# ---------------------------------------------------
+# 3. Testing
+# ---------------------------------------------------
+# Pytest caching
+.pytest_cache/
+
+# ---------------------------------------------------
+# 4. Machine Learning & Model Weights
+# ---------------------------------------------------
+*.pt
+*.pth
+*.bin
+*.safetensors
+*.ckpt
+*.onnx
+*.msgpack
+huggingface/
+
+# ---------------------------------------------------
+# 5. IDEs and OS Files
+# ---------------------------------------------------
+# VS Code, PyCharm, and Mac/Windows junk files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
