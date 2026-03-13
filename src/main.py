@@ -49,7 +49,7 @@ def main():
         # Step A: Drafter Tokenizes (now receives filtered custom_kwargs)
         drafter_tokens = drafter.tokenize(known_args.prompt, **custom_kwargs)
 
-        print(f"\n[SYSTEM] Drafter prompt tokenized of len: {len(drafter_tokens)}\n")
+        print(f"\n[SYSTEM] Drafter prompt tokenized of len: {len(drafter_tokens[0])}\n")
         
         # Step B: Drafter Generates
         drafter_output = drafter.generate(drafter_tokens, **custom_kwargs)
@@ -59,7 +59,7 @@ def main():
         # Step C: Verifier Tokenizes
         verifier_tokens = verifier.tokenize(known_args.prompt, **custom_kwargs)
 
-        print(f"\n[SYSTEM] Verifer prompt tokenized of len {len(verifier_tokens)}\n")
+        print(f"\n[SYSTEM] Verifer prompt tokenized of len {len(verifier_tokens[0])}\n")
         
         # Step D: Verifier Generates (takes the drafted latents)
         final_latents = verifier.generate(
