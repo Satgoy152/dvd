@@ -53,4 +53,4 @@ def llada_generate(tensors, state, gen_length=64, steps=64):
     # Decode only the generated portion (ignoring the prompt)
     result_text = tokenizer.decode(predicted_token_ids[0][prompt_len:], skip_special_tokens=True)
     
-    return {"final_text": result_text, "raw_tensors": predicted_token_ids}
+    return {"final_text": result_text, "tokens": predicted_token_ids}

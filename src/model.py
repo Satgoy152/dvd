@@ -38,13 +38,10 @@ class ModelBroker:
         tokenizer_kwargs = self._filter_kwargs(self.tokenizer_func, kwargs)
         return self.tokenizer_func(prompt, self.model_state, **tokenizer_kwargs)
 
-    def generate(self, tensors, drafted_latents=None, **kwargs):
+    def generate(self, input_toks, drafted_latents=None, **kwargs):
         print(f"[{self.role}] Running inference...")
         # Only pass kwargs that the generation function actually asked for
         gen_kwargs = self._filter_kwargs(self.gen_func, kwargs)
         
         # We handle drafted_latents explicitly. If they exist (Verifier), pass them in.
-        if drafted_latents is not None:
-            return self.gen_func(tensors, self.model_state, drafted_latents=drafted_latents, **gen_kwargs)
-        else:
-            return self.gen_func(tensors, self.model_state, **gen_kwargs)
+        return self.gen_func(input_toks, self.model_state, **gen_kwargs)

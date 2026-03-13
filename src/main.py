@@ -48,17 +48,22 @@ def main():
 
         # Step A: Drafter Tokenizes (now receives filtered custom_kwargs)
         drafter_tokens = drafter.tokenize(known_args.prompt, **custom_kwargs)
+
+        print(f"\n[SYSTEM] Drafter prompt tokenized of len: {len(drafter_tokens)}\n")
         
         # Step B: Drafter Generates
         drafter_output = drafter.generate(drafter_tokens, **custom_kwargs)
+
+        print(f"\n[SYSTEM] Drafter generate done\n")
         
         # Step C: Verifier Tokenizes
-        verifier_tensors = verifier.tokenize(known_args.prompt, **custom_kwargs)
+        verifier_tokens = verifier.tokenize(known_args.prompt, **custom_kwargs)
+
+        print(f"\n[SYSTEM] Verifer prompt tokenized of len {len(verifier_tokens)}\n")
         
         # Step D: Verifier Generates (takes the drafted latents)
         final_latents = verifier.generate(
-            tensors=verifier_tensors, 
-            drafted_latents=drafted_latents, 
+            input_toks=verifier_tokens, 
             **custom_kwargs
         )
 

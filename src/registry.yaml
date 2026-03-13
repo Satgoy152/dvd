@@ -5,3 +5,10 @@ available_models:
     tokenizer_func: "llada_tokenize"
     gen_func: "llada_generate"
     model_id: "GSAI-ML/LLaDA-8B-Base"
+
+  - name: "llada_8b_instruct"
+    path: "./adapters/llada_adapter.py"
+    init_func: "load_llada_model"
+    tokenizer_func: "llada_tokenize"
+    gen_func: "llada_generate"
+    model_id: "GSAI-ML/LLaDA-8B-Instruct"
