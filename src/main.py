@@ -47,10 +47,10 @@ def main():
         print(f"\n[SYSTEM] Commencing Speculative Run with custom kwargs: {custom_kwargs}\n")
 
         # Step A: Drafter Tokenizes (now receives filtered custom_kwargs)
-        drafter_tensors = drafter.tokenize(known_args.prompt, **custom_kwargs)
+        drafter_tokens = drafter.tokenize(known_args.prompt, **custom_kwargs)
         
         # Step B: Drafter Generates
-        drafted_latents = drafter.generate(drafter_tensors, **custom_kwargs)
+        drafter_output = drafter.generate(drafter_tokens, **custom_kwargs)
         
         # Step C: Verifier Tokenizes
         verifier_tensors = verifier.tokenize(known_args.prompt, **custom_kwargs)

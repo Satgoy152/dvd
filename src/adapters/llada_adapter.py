@@ -1,7 +1,7 @@
 import torch
 from transformers import AutoTokenizer, AutoModel
 
-def load_llada_model(model_id="GSAI-ML/LLaDA-8B-Base"):
+def load_llada_model(model_id="GSAI-ML/LLaDA-8B-Instruct"):
     """Loads the custom LLaDA diffusion architecture."""
     print(f"      -> [LLaDA ADAPTER] Loading Diffusion Model '{model_id}'...")
     tokenizer = AutoTokenizer.from_pretrained(model_id, trust_remote_code=True)
