@@ -12,5 +12,5 @@ python main.py \
   --verifier "llada_8b_instruct" \
   --prompt "Give me a short story for a 5 year old" \
   --tokenizer_max_len 32 \
-  --gen_length 64 \
+  --gen_length 256 \
   --steps 128

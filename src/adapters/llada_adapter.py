@@ -37,9 +37,13 @@ def llada_generate(tensors, state, gen_length=64, steps=64):
     # LLaDA uses a highly specific mask token ID for its diffusion process
     mask_id = 126336 
     
-    # 1. Initialize the sequence: Prompt + [MASK] * gen_length
-    x = torch.full((1, prompt_len + gen_length), mask_id, dtype=torch.long, device=device)
-    x[:, :prompt_len] = prompt_ids
+    if steps == 0:
+        # 1. Initialize the sequence: Prompt + [MASK] * gen_length
+        x = torch.full((1, prompt_len + gen_length), mask_id, dtype=torch.long, device=device)
+        x[:, :prompt_len] = prompt_ids
+    else:
+        x = prompt_ids
+
     
     # 2. The Diffusion Generation Loop
     # Note: To run full high-quality generation, you would drop LLaDA's official 
@@ -53,4 +57,4 @@ def llada_generate(tensors, state, gen_length=64, steps=64):
     # Decode only the generated portion (ignoring the prompt)
     result_text = tokenizer.decode(predicted_token_ids[0][prompt_len:], skip_special_tokens=True)
     
-    return {"final_text": result_text, "tokens": predicted_token_ids}
+    return {"logits": outputs["logits"], "tokens": predicted_token_ids}
