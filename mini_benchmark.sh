@@ -6,15 +6,15 @@ set -e
 export HF_HOME="/nfs/turbo/coe-jjparkcv-medium/satyam/.cache/huggingface"
 
 # --- Configuration variables you can change ---
-ALGORITHM="top_k_intersection"  # try: baseline_cascade, threshold_verifier, top_k_intersection
+ALGORITHM="baseline_cascade"  # try: baseline_cascade, threshold_verifier, top_k_intersection
 VERIFIER="llada_8b_instruct"
 DRAFTER="llada_8b_instruct"
 
 TASK="gsm8k"
 LIMIT=20           
-STEPS=32            # Small step limit
+STEPS=64            # Small step limit
 GEN_LENGTH=256      # Short generation length
-NUM_FEWSHOT=5      # Few-shot examples
+NUM_FEWSHOT=0      # Few-shot examples
 # ----------------------------------------------
 
 echo "Running rapid test for algorithm: $ALGORITHM"
