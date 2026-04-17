@@ -17,8 +17,11 @@ def run_step(current_tokens, drafter, verifier, step_idx, total_steps, **kwargs)
     mask_id = int(kwargs.get("mask_id", 126336))
     threshold = float(kwargs.get("threshold", 0.5))
     
+    gen_kwargs = dict(kwargs)
+    gen_kwargs["steps"] = step_idx + 1
+
     # 1. Run Drafter
-    drafter_out = drafter.generate(input_toks={"input_ids": current_tokens}, steps=step_idx+1, **kwargs)
+    drafter_out = drafter.generate(input_toks={"input_ids": current_tokens}, **gen_kwargs)
     
     # Simulate Drafter unmasking tokens
     drafted_tokens = sample_verifier(
@@ -30,7 +33,7 @@ def run_step(current_tokens, drafter, verifier, step_idx, total_steps, **kwargs)
     )
     
     # 2. Run Verifier on the Drafter's output
-    ver_out = verifier.generate(input_toks={"input_ids": drafted_tokens}, steps=step_idx+1, **kwargs)
+    ver_out = verifier.generate(input_toks={"input_ids": drafted_tokens}, **gen_kwargs)
     ver_logits = ver_out["logits"]
     
     # 3. Verification
