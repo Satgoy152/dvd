@@ -20,3 +20,7 @@ available_algorithms:
   - name: "threshold_verifier"
     path: "./algorithms/threshold_verifier.py"
     step_func: "run_step"
+
+  - name: "top_k_intersection"
+    path: "./algorithms/top_k_intersection.py"
+    step_func: "run_step"
