@@ -17,3 +17,6 @@ available_algorithms:
     path: "./algorithms/baseline.py"
     step_func: "run_step"
 
+  - name: "threshold_verifier"
+    path: "./algorithms/threshold_verifier.py"
+    step_func: "run_step"
