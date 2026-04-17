@@ -12,6 +12,15 @@ available_models:
     tokenizer_func: "llada_tokenize"
     gen_func: "llada_generate"
     model_id: "GSAI-ML/LLaDA-8B-Instruct"
+
+  - name: "mdlm_instruct"
+    path: "./adapters/mdlm_adapter.py"
+    init_func: "load_mdlm_model"
+    tokenizer_func: "mdlm_tokenize"
+    gen_func: "mdlm_generate"
+    model_id: "dllm-hub/Qwen2.5-Coder-0.5B-Instruct-diffusion-mdlm-v0.1"
+
+    
 available_algorithms:
   - name: "baseline_cascade"
     path: "./algorithms/baseline.py"
