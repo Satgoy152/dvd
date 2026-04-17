@@ -40,7 +40,8 @@ with st.sidebar:
     st.header("Settings")
     
     default_model_idx = available_models.index("llada_8b_instruct") if "llada_8b_instruct" in available_models else 0
-    model_choice = st.selectbox("Model", available_models, index=default_model_idx)
+    drafter_choice = st.selectbox("Drafter Model", available_models, index=default_model_idx)
+    verifier_choice = st.selectbox("Verifier Model", available_models, index=default_model_idx)
     
     default_algo_idx = available_algorithms.index("baseline_cascade") if "baseline_cascade" in available_algorithms else 0
     algo_choice = st.selectbox("Algorithm", available_algorithms, index=default_algo_idx)
@@ -66,16 +67,16 @@ if run_btn:
     # Render placeholder immediately
     status_text.info("Loading model...")
     
-    # 1. Load model & algo
+    # 1. Load models & algo
     try:
-        verifier = get_model(model_choice)
+        drafter = get_model(drafter_choice, role="DRAFTER")
+        verifier = get_model(verifier_choice, role="VERIFIER")
         algo_func = registry.load_algorithm(algo_choice)
     except Exception as e:
-        st.error(f"Failed to load model or algorithm: {e}")
+        st.error(f"Failed to load models or algorithm: {e}")
         st.stop()
         
     tokenizer = verifier.model_state["tokenizer"]
-    drafter = verifier # For baseline, Drafter == Verifier or is unused
     
     custom_kwargs = {
         "gen_length": int(gen_len),
