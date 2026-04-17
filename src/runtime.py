@@ -48,7 +48,8 @@ def run(drafter, verifier, algorithm_func, known_args, custom_kwargs):
             else:
                 aggregated_metrics[k] = v
 
-        print(f"[SYSTEM] Step {s+1}/{steps} done. Metrics this step: {metrics}")
+        if custom_kwargs.get("verbose"):
+            print(f"[SYSTEM] Step {s+1}/{steps} done. Metrics this step: {metrics}")
 
     # Decode final output (only the generated portion after the prompt)
     tokenizer = verifier.model_state["tokenizer"]

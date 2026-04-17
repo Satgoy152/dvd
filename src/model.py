@@ -33,13 +33,15 @@ class ModelBroker:
         return filtered_kwargs
 
     def tokenize(self, prompt: str, **kwargs):
-        print(f"[{self.role}] Tokenizing prompt...")
+        if kwargs.get("verbose"):
+            print(f"[{self.role}] Tokenizing prompt...")
         # Only pass kwargs that the tokenizer function actually asked for
         tokenizer_kwargs = self._filter_kwargs(self.tokenizer_func, kwargs)
         return self.tokenizer_func(prompt, self.model_state, **tokenizer_kwargs)
 
     def generate(self, input_toks, drafted_latents=None, **kwargs):
-        print(f"[{self.role}] Running inference...")
+        if kwargs.get("verbose"):
+            print(f"[{self.role}] Running inference...")
         # Only pass kwargs that the generation function actually asked for
         gen_kwargs = self._filter_kwargs(self.gen_func, kwargs)
         

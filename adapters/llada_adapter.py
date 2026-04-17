@@ -18,15 +18,17 @@ def load_llada_model(model_id="GSAI-ML/LLaDA-8B-Instruct"):
         
     return {"tokenizer": tokenizer, "model": model}
 
-def llada_tokenize(prompt, state, tokenizer_max_len=128):
-    print(f"      -> [LLaDA ADAPTER] Tokenizing prompt...")
+def llada_tokenize(prompt, state, tokenizer_max_len=128, **kwargs):
+    if state.get("verbose") or kwargs.get("verbose"):
+        print(f"      -> [LLaDA ADAPTER] Tokenizing prompt...")
     tokenizer = state["tokenizer"]
     inputs = tokenizer(prompt, return_tensors="pt", max_length=tokenizer_max_len, truncation=True)
     return inputs
 
-def llada_generate(tensors, state, gen_length=64, steps=64):
+def llada_generate(tensors, state, gen_length=64, steps=64, **kwargs):
     """Translates the standard generation request into LLaDA's masked diffusion process."""
-    print(f"      -> [LLaDA ADAPTER] Running Masked Diffusion for {steps} steps...")
+    if state.get("verbose") or kwargs.get("verbose"):
+        print(f"      -> [LLaDA ADAPTER] Running Masked Diffusion for {steps} steps...")
     model = state["model"]
     tokenizer = state["tokenizer"]
     device = model.device
@@ -49,7 +51,8 @@ def llada_generate(tensors, state, gen_length=64, steps=64):
     # Note: To run full high-quality generation, you would drop LLaDA's official 
     # generate.py script into this folder and import their exact scheduling loop.
     # For this adapter test, we perform a single forward pass to prove the tensors flow.
-    print("      -> [LLaDA ADAPTER] Executing reverse diffusion process...")
+    if state.get("verbose") or kwargs.get("verbose"):
+        print("      -> [LLaDA ADAPTER] Executing reverse diffusion process...")
     with torch.no_grad():
         outputs = model(x)
         predicted_token_ids = outputs["logits"].argmax(-1)
