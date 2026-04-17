@@ -26,6 +26,16 @@ def parse_results(results_dir):
         
         # Determine aggregate accuracy
         valid_scores = [v for v in scores.values() if v is not None]
+        
+        # Fallback: if task_scores was null, search raw results directly
+        if not valid_scores:
+            raw_results = run_data.get("results", {})
+            for task_name, task_metrics in raw_results.items():
+                for key, val in task_metrics.items():
+                    if ("exact_match" in key or key.startswith("acc")) and "stderr" not in key and isinstance(val, (int, float)):
+                        valid_scores.append(val)
+                        break
+        
         avg_score = sum(valid_scores) / len(valid_scores) if valid_scores else 0.0
         
         # NFEs

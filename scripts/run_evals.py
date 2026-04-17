@@ -63,13 +63,26 @@ def main():
     print(f"Average Metrics over {req_count} requests: {avg_metrics}")
     
     # Extract task accuracies (generation eval)
-    # Different tasks have different primary metrics. e.g. exact_match vs acc
+    # lm-eval uses varied key formats like "exact_match,flexible-extract", "acc,none", etc.
     task_scores = {}
     for task_name, task_metrics in results.get("results", {}).items():
-        # typically generation tasks use exact_match
-        em = task_metrics.get("exact_match,none-0", task_metrics.get("exact_match", None))
-        acc = task_metrics.get("acc,none-0", task_metrics.get("acc", None))
-        task_scores[task_name] = em if em is not None else acc
+        score = None
+        # Priority order: flexible exact_match > strict exact_match > acc
+        for key in task_metrics:
+            if "exact_match" in key and "stderr" not in key and "flexible" in key:
+                score = task_metrics[key]
+                break
+        if score is None:
+            for key in task_metrics:
+                if "exact_match" in key and "stderr" not in key:
+                    score = task_metrics[key]
+                    break
+        if score is None:
+            for key in task_metrics:
+                if key.startswith("acc") and "stderr" not in key:
+                    score = task_metrics[key]
+                    break
+        task_scores[task_name] = score
         
     print(f"Task Scores: {task_scores}")
     
