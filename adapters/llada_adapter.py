@@ -53,8 +53,14 @@ def llada_generate(tensors, state, gen_length=64, steps=64, **kwargs):
     # For this adapter test, we perform a single forward pass to prove the tensors flow.
     if state.get("verbose") or kwargs.get("verbose"):
         print("      -> [LLaDA ADAPTER] Executing reverse diffusion process...")
+    
+    attention_mask = tensors.get("attention_mask", None)
+    
     with torch.no_grad():
-        outputs = model(x)
+        if attention_mask is not None:
+            outputs = model(x, attention_mask=attention_mask.to(device))
+        else:
+            outputs = model(x)
         predicted_token_ids = outputs["logits"].argmax(-1)
         
     # Decode only the generated portion (ignoring the prompt)

@@ -78,11 +78,17 @@ def run(drafter, verifier, algorithm_func, prompts, custom_kwargs):
         current_tokens = torch.full(
             (B, seq_len), mask_id, dtype=torch.long, device=device
         )
+        attention_mask = torch.ones((B, seq_len), dtype=torch.long, device=device)
+
         for i, (seq, plen) in enumerate(zip(token_seqs, prompt_lengths)):
             current_tokens[i, :plen] = seq.to(device)
             # Fill the gap between prompt end and max_prompt_len with pad_id
             if plen < max_prompt_len:
                 current_tokens[i, plen:max_prompt_len] = pad_id
+                attention_mask[i, plen:max_prompt_len] = 0
+
+        # Add attention mask to kwargs so it flows to drafter/verifier via algorithms
+        custom_kwargs["attention_mask"] = attention_mask
 
         # ----- Generation loop -----
         for s in range(steps):

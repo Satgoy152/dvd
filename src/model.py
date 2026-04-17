@@ -43,6 +43,9 @@ class ModelBroker:
     def generate(self, input_toks, drafted_latents=None, **kwargs):
         if kwargs.get("verbose"):
             print(f"[{self.role}] Running inference...")
+            
+        if "attention_mask" in kwargs:
+            input_toks["attention_mask"] = kwargs["attention_mask"]
         
         swap_models = kwargs.get("swap_models_each_step", False)
         target_device = "cuda" if torch.cuda.is_available() else "cpu"
