@@ -42,8 +42,22 @@ class ModelBroker:
     def generate(self, input_toks, drafted_latents=None, **kwargs):
         if kwargs.get("verbose"):
             print(f"[{self.role}] Running inference...")
+        
+        swap_models = kwargs.get("swap_models_each_step", False)
+        target_device = "cuda" if torch.cuda.is_available() else "cpu"
+        
+        if swap_models and "model" in self.model_state:
+            self.model_state["model"].to(target_device)
+        
         # Only pass kwargs that the generation function actually asked for
         gen_kwargs = self._filter_kwargs(self.gen_func, kwargs)
         
         # We handle drafted_latents explicitly. If they exist (Verifier), pass them in.
-        return self.gen_func(input_toks, self.model_state, **gen_kwargs)
+        res = self.gen_func(input_toks, self.model_state, **gen_kwargs)
+        
+        if swap_models and "model" in self.model_state:
+            self.model_state["model"].to("cpu")
+            if target_device == "cuda":
+                torch.cuda.empty_cache()
+                
+        return res

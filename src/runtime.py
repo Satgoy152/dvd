@@ -1,4 +1,6 @@
 import torch
+import time
+import torch.nn.functional as F
 
 def run(drafter, verifier, algorithm_func, known_args, custom_kwargs):
     steps = int(custom_kwargs["steps"])
@@ -21,13 +23,18 @@ def run(drafter, verifier, algorithm_func, known_args, custom_kwargs):
     # Initialize aggregate metrics
     aggregated_metrics = {
         "drafter_nfe": 0,
-        "verifier_nfe": 0
+        "verifier_nfe": 0,
+        "total_latency": 0.0,
+        "step_latency_sum": 0.0,
     }
 
     print(f"\n[SYSTEM] Starting generation loop for {steps} steps...\n")
 
+    start_time_total = time.perf_counter()
+
     for s in range(steps):
         step_kwargs = dict(custom_kwargs)
+        start_time_step = time.perf_counter()
         
         # Call the user-provided algorithm
         output = algorithm_func(
@@ -40,7 +47,13 @@ def run(drafter, verifier, algorithm_func, known_args, custom_kwargs):
         )
         
         current_tokens = output.get("next_tokens", current_tokens)
+        
+        step_latency = time.perf_counter() - start_time_step
+        aggregated_metrics["step_latency_sum"] += step_latency
+        
         metrics = output.get("metrics", {})
+        if "step_latency" not in metrics:
+            metrics["step_latency"] = step_latency
         
         for k, v in metrics.items():
             if k in aggregated_metrics:
@@ -50,6 +63,20 @@ def run(drafter, verifier, algorithm_func, known_args, custom_kwargs):
 
         if custom_kwargs.get("verbose"):
             print(f"[SYSTEM] Step {s+1}/{steps} done. Metrics this step: {metrics}")
+
+    total_time = time.perf_counter() - start_time_total
+    aggregated_metrics["total_latency"] = total_time
+    aggregated_metrics["avg_step_latency"] = aggregated_metrics["step_latency_sum"] / steps if steps > 0 else 0
+
+    # Divergence Check
+    if custom_kwargs.get("compute_divergence", True):
+        with torch.no_grad():
+            ver_out = verifier.generate(input_toks={"input_ids": current_tokens}, steps=steps, **custom_kwargs)
+            logits = ver_out["logits"]
+            probs = F.softmax(logits, dim=-1)
+            entropy = -torch.sum(probs * torch.log(probs + 1e-10), dim=-1) # (1, seq_len)
+            avg_entropy = entropy[:, prompt_len:].mean().item()
+            aggregated_metrics["divergence_entropy"] = avg_entropy
 
     # Decode final output (only the generated portion after the prompt)
     tokenizer = verifier.model_state["tokenizer"]

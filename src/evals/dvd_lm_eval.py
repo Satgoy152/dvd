@@ -67,6 +67,7 @@ class DVD_LM(LM):
             # Track aggregate metrics across requests
             for k, v in output["metrics"].items():
                 self.total_aggregated_metrics[k] = self.total_aggregated_metrics.get(k, 0) + v
+            self.total_aggregated_metrics["request_count"] = self.total_aggregated_metrics.get("request_count", 0) + 1
                 
             res.append(output["text"])
             
