@@ -71,7 +71,8 @@ def run(drafter, verifier, algorithm_func, known_args, custom_kwargs):
     # Divergence Check
     if custom_kwargs.get("compute_divergence", True):
         with torch.no_grad():
-            ver_out = verifier.generate(input_toks={"input_ids": current_tokens}, steps=steps, **custom_kwargs)
+            div_kwargs = {k: v for k, v in custom_kwargs.items() if k != "steps"}
+            ver_out = verifier.generate(input_toks={"input_ids": current_tokens}, steps=steps, **div_kwargs)
             logits = ver_out["logits"]
             probs = F.softmax(logits, dim=-1)
             entropy = -torch.sum(probs * torch.log(probs + 1e-10), dim=-1) # (1, seq_len)
