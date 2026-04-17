@@ -41,37 +41,29 @@ def mdlm_tokenize(prompt, state, tokenizer_max_len=256, **kwargs):
     return tokenizer(formatted, return_tensors="pt", max_length=tokenizer_max_len, truncation=True)
 
 @torch.no_grad()
-def mdlm_generate(tensors, state, gen_length=256, steps=0, **kwargs):
+def mdlm_generate(tensors, state, **kwargs):
+    """
+    Pure Forward Pass for MDLM. 
+    The canvas (Prompt + Masks) is entirely managed by the DVD framework.
+    """
     model = state["model"]
-    tokenizer = state["tokenizer"]
     device = model.device
     
-    # Ensure input_ids are pulled correctly from the dict
-    input_ids = tensors["input_ids"] if isinstance(tensors, dict) else tensors
-    input_ids = input_ids.to(device)
-    
-    prompt_len = input_ids.shape[1]
-    mask_id = tokenizer.mask_token_id
-
-    # 1. Canvas Setup
-    if steps == 0:
-        # Initialize sequence: Prompt + [MASK] * gen_length
-        x = torch.full((1, prompt_len + gen_length), mask_id, dtype=torch.long, device=device)
-        x[:, :prompt_len] = input_ids
+    # 1. Safely extract inputs provided by `_common.py`
+    if isinstance(tensors, dict):
+        input_ids = tensors["input_ids"].to(device)
+        # We can use the attention mask provided by the framework
+        attention_mask = tensors.get("attention_mask", torch.ones_like(input_ids)).to(device)
     else:
-        # Continue with existing sequence
-        x = input_ids
+        input_ids = tensors.to(device)
+        attention_mask = torch.ones_like(input_ids).to(device)
 
-    # 2. FORCE BIDIRECTIONAL ATTENTION
-    # We create a 4D mask [batch, 1, seq_len, seq_len] of zeros (no masking)
-    # or a 2D mask of ones. Qwen2 architecture usually expects 2D ones for 'full'
-    attention_mask = torch.ones_like(x, device=device)
-    
-    # 3. Explicitly pass position_ids to ensure they don't reset in diffusion
-    position_ids = torch.arange(x.shape[1], device=device).unsqueeze(0)
+    # 2. Explicitly pass position_ids to ensure they don't reset in diffusion
+    position_ids = torch.arange(input_ids.shape[1], device=device).unsqueeze(0)
 
+    # 3. Standard Forward Pass
     outputs = model(
-        input_ids=x, 
+        input_ids=input_ids, 
         attention_mask=attention_mask,
         position_ids=position_ids
     )

@@ -3,7 +3,7 @@
 # Use this for quick testing and debugging!
 set -e
 
-export HF_HOME="/nfs/turbo/coe-jjparkcv-medium/satyam/.cache/huggingface"
+# export HF_HOME="/nfs/turbo/coe-jjparkcv-medium/satyam/.cache/huggingface"
 
 # --- Configuration variables you can change ---
 ALGORITHM="top_k_intersection"  # try: baseline_cascade, threshold_verifier, top_k_intersection

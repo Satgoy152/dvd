@@ -1,34 +1,68 @@
 import torch
-from src.utils import sample_verifier
 
-def run_step(current_tokens, drafter, verifier, step_idx, total_steps, **kwargs):
-    """
-    Pure Diffusion Baseline for Dream.
-    The adapter does a single forward pass, and sample_verifier handles the denoising.
-    """
-    gen_length = int(kwargs.get("gen_length", 256))
-    
-    # Dynamically fetch the mask ID (this ensures we use 151670 for Dream, not LLaMA's mask)
-    mask_id = verifier.model_state["tokenizer"].mask_token_id
+from algorithms._common import (
+    initialize_content,
+    step_generate,
+    sample_topk_confident,
+    decode_results,
+)
 
-    # 1. Pure Forward Pass (The adapter ignores steps/gen_length now)
-    ver_out = verifier.generate(
-        input_toks={"input_ids": current_tokens}
-    )
+def run_step(drafter, verifier, prompts, step_idx, total_steps, algo_state, **kwargs):
+    """
+    Pure Baseline diffusion: Each step unmasks the top-K most confident tokens 
+    based on a single forward pass. Dynamically fetches the mask ID to support 
+    Dream (151670), LLaDA (126336), or any other MDLM.
+    """
+    gen_length = int(kwargs.get("gen_length"))
     
-    # 2. Denoise and Update Tokens
-    next_tokens = sample_verifier(
-        logits=ver_out["logits"], 
-        tokens=current_tokens, 
-        mask_id=mask_id, 
-        gen_length=gen_length, 
-        steps=total_steps
-    )
+    # --- THE DYNAMIC FIX ---
+    # We fetch the mask ID directly from the verifier's tokenizer state.
+    tokenizer = verifier.model_state["tokenizer"]
+    mask_id = tokenizer.mask_token_id
     
-    return {
-        "next_tokens": next_tokens,
-        "metrics": {
-            "verifier_nfe": 1,
-            "drafter_nfe": 0
-        }
+    if mask_id is None:
+        raise ValueError("[ERROR] Tokenizer has no mask_token_id. Ensure your adapter adds it.")
+
+    if gen_length % total_steps != 0:
+        raise ValueError(
+            f"gen_length ({gen_length}) must be divisible by total_steps ({total_steps})"
+        )
+    tokens_per_step = gen_length // total_steps
+
+    # Filter kwargs to pass down cleanly
+    kwargs_pass = {k: v for k, v in kwargs.items() if k not in ["gen_length", "mask_id"]}
+    
+    if step_idx == 0:
+        # Step 0: Create the initial canvas using the dynamic mask_id
+        full_content, full_attn, prompt_len, logits = initialize_content(
+            verifier, prompts, gen_length, mask_id, **kwargs_pass
+        )
+    else:
+        # Subsequent steps: Pull from state and run the pure forward pass
+        full_content = algo_state["content"]
+        full_attn = algo_state["content_attn"]
+        prompt_len = algo_state["prompt_len"]
+        
+        logits = step_generate(
+            verifier, full_content, full_attn, prompt_len, gen_length, mask_id
+        )
+
+    # Denoise: Select top-K tokens
+    gen_region = full_content[:, prompt_len:]
+    updated_gen = sample_topk_confident(logits, gen_region, mask_id, tokens_per_step)
+    full_content = torch.cat([full_content[:, :prompt_len], updated_gen], dim=1)
+
+    result = {
+        "algo_state": {
+            "content": full_content,
+            "content_attn": full_attn,
+            "prompt_len": prompt_len,
+        },
+        "metrics": {"verifier_nfe": 1, "drafter_nfe": 0},
     }
+
+    # Final Step: Decode the finished sequence
+    if step_idx == total_steps - 1:
+        result["results"] = decode_results(verifier, full_content, prompts, prompt_len)
+
+    return result

@@ -64,26 +64,13 @@ def llada_tokenize(prompt, state, tokenizer_max_len=128, **kwargs):
 def llada_generate(
     tensors,
     state,
-    initialize=False,
-    gen_length=None,
+    gen_length=256,
     mask_id=LLADA_MASK_ID,
-    prompt_len=None,
     **kwargs,
 ):
-    """Run one forward pass; return logits over the generation region only.
-
-    Args:
-        tensors: dict with "input_ids" (B, L) content-only ids (no template),
-                 and optional "attention_mask" (B, L) marking pad positions.
-                 - initialize=True:  L == max_prompt_len (prompt only)
-                 - initialize=False: L == max_prompt_len + gen_length
-        initialize: if True, append gen_length mask tokens to the prompt.
-        gen_length: number of tokens in the generation region.
-        mask_id:    mask token id used to fill the new gen region.
-        prompt_len: length of the prompt portion when initialize=False.
-
-    Returns:
-        {"logits": (B, gen_length, V), "tokens": None}
+    """
+    Framework-compliant forward pass.
+    Handles chat templates natively and pads logits to match _common.py's expectations.
     """
     model = state["model"]
     device = model.device
@@ -93,40 +80,45 @@ def llada_generate(
     if content_attn is not None:
         content_attn = content_attn.to(device)
 
-    if initialize:
-        if gen_length is None:
-            raise ValueError("llada_generate: gen_length required when initialize=True")
-        prompt_ids = content
-        B = content.shape[0]
-        gen_region = torch.full((B, gen_length), mask_id, dtype=torch.long, device=device)
-        prompt_attn = content_attn if content_attn is not None else None
-    else:
-        if prompt_len is None:
-            raise ValueError("llada_generate: prompt_len required when initialize=False")
-        if gen_length is None:
-            gen_length = content.shape[1] - prompt_len
-        prompt_ids = content[:, :prompt_len]
-        gen_region = content[:, prompt_len:]
-        prompt_attn = content_attn[:, :prompt_len] if content_attn is not None else None
+    # 1. Dynamically calculate prompt length based on the framework's canvas
+    prompt_len = kwargs.get("prompt_len")
+    if prompt_len is None:
+        prompt_len = content.shape[1] - gen_length
 
+    # Split the framework's canvas
+    prompt_ids = content[:, :prompt_len]
+    gen_region = content[:, prompt_len:]
+
+    # 2. Safely Inject the Chat Template (Prefix and Suffix)
     prefix_ids = state["template_prefix_ids"].to(device)
     suffix_ids = state["template_suffix_ids"].to(device)
     B = prompt_ids.shape[0]
     prefix_batch = prefix_ids.unsqueeze(0).expand(B, -1)
     suffix_batch = suffix_ids.unsqueeze(0).expand(B, -1)
 
+    # Reconstruct the sequence for the model
     x = torch.cat([prefix_batch, prompt_ids, suffix_batch, gen_region], dim=1)
 
-    if prompt_attn is not None:
+    if content_attn is not None:
+        prompt_attn = content_attn[:, :prompt_len]
         ones = lambda n: torch.ones((B, n), dtype=prompt_attn.dtype, device=device)
         attn_mask = torch.cat([ones(prefix_ids.shape[0]), prompt_attn,
                                ones(suffix_ids.shape[0]), ones(gen_length)], dim=1)
     else:
         attn_mask = None
 
+    # 3. Standard Forward Pass
     with torch.no_grad():
         outputs = model(x, attention_mask=attn_mask) if attn_mask is not None else model(x)
 
+    # 4. Extract only the generated logits
     logits = outputs["logits"]
     gen_logits = logits[:, -gen_length:, :]
-    return {"logits": gen_logits, "tokens": None}
+    
+    # 5. CRITICAL FIX: Pad the left side with dummy logits!
+    # This ensures the tensor shape perfectly matches the `prompt_len + gen_length` 
+    # canvas size so _common.py can slice it safely without crashing.
+    dummy = torch.zeros((B, prompt_len, gen_logits.shape[-1]), dtype=gen_logits.dtype, device=device)
+    full_framework_logits = torch.cat([dummy, gen_logits], dim=1)
+
+    return {"logits": full_framework_logits, "tokens": None}

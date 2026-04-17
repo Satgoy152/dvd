@@ -1,14 +1,31 @@
 import torch
+import transformers
 from transformers import AutoTokenizer, AutoModel
+
+# ====================================================================
+# Modern Hugging Face automatically injects security kwargs.
+# Older models pass these blindly to their __init__ and crash.
+# ====================================================================
+if not hasattr(transformers.PreTrainedModel, "_dvd_dream_patched"):
+    original_from_pretrained = transformers.PreTrainedModel.from_pretrained
+
+    @classmethod
+    def patched_from_pretrained(cls, pretrained_model_name_or_path, *model_args, **kwargs):
+        # Quietly delete the offending modern keyword argument
+        kwargs.pop("weights_only", None)
+        
+        # Continue the normal Hugging Face loading process
+        return original_from_pretrained.__func__(cls, pretrained_model_name_or_path, *model_args, **kwargs)
+
+    transformers.PreTrainedModel.from_pretrained = patched_from_pretrained
+    transformers.PreTrainedModel._dvd_dream_patched = True
+# ====================================================================
 
 def load_dream_model(model_id="Dream-org/Dream-v0-Instruct-7B"):
     print(f"      -> [DREAM ADAPTER] Loading Native MDLM '{model_id}'...")
     tokenizer = AutoTokenizer.from_pretrained(model_id, trust_remote_code=True)
     
-    # Qwen tokenizers sometimes forget to set the mask_token attribute in config.
-    # We explicitly lock it in here so tokenizer.mask_token_id works dynamically everywhere.
-    if tokenizer.mask_token_id is None:
-        # 151670 is the <|mask|> token for Dream/Qwen-diffusion
+    if getattr(tokenizer, "mask_token_id", None) is None:
         tokenizer.add_special_tokens({'mask_token': '<|mask|>'}) 
         
     model = AutoModel.from_pretrained(
@@ -16,8 +33,10 @@ def load_dream_model(model_id="Dream-org/Dream-v0-Instruct-7B"):
         trust_remote_code=True, 
         torch_dtype=torch.bfloat16
     )
+    
     if torch.cuda.is_available():
         model = model.cuda()
+        
     model.eval()
     return {"tokenizer": tokenizer, "model": model}
 

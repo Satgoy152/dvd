@@ -1,14 +1,6 @@
 import torch
 
-
 def tokenize_batch(broker, prompts, **kwargs):
-    """Tokenize each prompt via `broker` and right-pad to uniform length.
-
-    Returns:
-        content:     (B, max_prompt_len) token ids, right-padded with pad_id
-        content_attn:(B, max_prompt_len) 1 for real, 0 for pad
-        prompt_len:  int, max_prompt_len across the batch
-    """
     tokenizer = broker.model_state["tokenizer"]
     device = broker.model_state["model"].device
     pad_id = tokenizer.pad_token_id
@@ -32,34 +24,36 @@ def tokenize_batch(broker, prompts, **kwargs):
 
 
 def initialize_content(broker, prompts, gen_length, mask_id, **kwargs):
-    """Tokenize prompts and run broker.generate(initialize=True).
-
-    Returns:
-        full_content: (B, prompt_len + gen_length) with gen region all mask_id
-        full_attn:    (B, prompt_len + gen_length)
-        prompt_len:   int
-        logits:       (B, gen_length, V) from the initial forward pass
-    """
+    """Tokenize prompts, build the masked canvas, and do the initial forward pass."""
     prompt_ids, prompt_attn, prompt_len = tokenize_batch(broker, prompts, **kwargs)
+    
+    B = prompt_ids.shape[0]
+    device = prompt_ids.device
+    
+    # 1. BUILD THE CANVAS FIRST
+    gen_region = torch.full((B, gen_length), mask_id, dtype=torch.long, device=device)
+    full_content = torch.cat([prompt_ids, gen_region], dim=1)
+    full_attn = torch.cat([prompt_attn, torch.ones_like(gen_region)], dim=1)
+    
+    # 2. DO THE FORWARD PASS ON THE FULL CANVAS
     out = broker.generate(
-        input_toks={"input_ids": prompt_ids, "attention_mask": prompt_attn},
+        input_toks={"input_ids": full_content, "attention_mask": full_attn},
         initialize=True,
         gen_length=gen_length,
         mask_id=mask_id,
     )
-    B = prompt_ids.shape[0]
-    device = prompt_ids.device
-    gen_region = torch.full((B, gen_length), mask_id, dtype=torch.long, device=device)
-    full_content = torch.cat([prompt_ids, gen_region], dim=1)
-    full_attn = torch.cat([prompt_attn, torch.ones_like(gen_region)], dim=1)
-    return full_content, full_attn, prompt_len, out["logits"]
+    
+    # 3. SLICE THE LOGITS
+    # The model returns logits for the whole sequence (Prompt + Gen).
+    # We only want to return the logits for the generated region to match gen_length.
+    full_logits = out["logits"]
+    gen_logits = full_logits[:, prompt_len:, :]
+    
+    return full_content, full_attn, prompt_len, gen_logits
 
 
 def step_generate(broker, full_content, full_attn, prompt_len, gen_length, mask_id):
-    """Run broker.generate(initialize=False) on an already-initialized state.
-
-    Returns logits (B, gen_length, V).
-    """
+    """Run forward pass and return ONLY the logits for the generated region."""
     out = broker.generate(
         input_toks={"input_ids": full_content, "attention_mask": full_attn},
         initialize=False,
@@ -67,14 +61,15 @@ def step_generate(broker, full_content, full_attn, prompt_len, gen_length, mask_
         mask_id=mask_id,
         prompt_len=prompt_len,
     )
-    return out["logits"]
+    
+    # SLICE THE LOGITS here too!
+    full_logits = out["logits"]
+    gen_logits = full_logits[:, prompt_len:, :]
+    
+    return gen_logits
 
 
 def sample_topk_confident(logits, gen_region, mask_id, k):
-    """Unmask the top-k most confident still-masked positions per batch item.
-
-    Returns an updated gen_region tensor.
-    """
     predicted_ids = logits.argmax(dim=-1)
     confidence = logits.max(dim=-1).values
     mask_positions = gen_region == mask_id
@@ -86,7 +81,6 @@ def sample_topk_confident(logits, gen_region, mask_id, k):
 
 
 def decode_results(broker, full_content, prompts, prompt_len):
-    """Decode the generation region of each batch item to text."""
     tokenizer = broker.model_state["tokenizer"]
     results = []
     for i in range(full_content.shape[0]):
