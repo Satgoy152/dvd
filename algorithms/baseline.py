@@ -21,9 +21,10 @@ def run_step(drafter, verifier, prompts, step_idx, total_steps, algo_state, **kw
         )
     tokens_per_step = gen_length // total_steps
 
+    kwargs_pass = {k: v for k, v in kwargs.items() if k not in ["gen_length", "mask_id"]}
     if step_idx == 0:
         full_content, full_attn, prompt_len, logits = initialize_content(
-            verifier, prompts, gen_length, mask_id, **kwargs
+            verifier, prompts, gen_length, mask_id, **kwargs_pass
         )
     else:
         full_content = algo_state["content"]
