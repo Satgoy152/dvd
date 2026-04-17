@@ -12,7 +12,7 @@ sys.path.append(project_root)
 from src.registry import ModelRegistry
 from src.model import ModelBroker
 
-st.set_page_config(page_title="MDLM Visualizer", layout="wide")
+st.set_page_config(page_title="Visualizer", layout="wide")
 
 @st.cache_resource
 def load_registry_and_names():
@@ -33,7 +33,7 @@ def get_model(model_name, role="VERIFIER"):
     broker = ModelBroker(model_module, model_config, role=role)
     return broker
 
-st.title("MDLM Token Generation Visualizer")
+st.title("Token Generation Visualizer")
 st.markdown("A simple UI to visualize step-by-step masked token decoding.")
 
 with st.sidebar:

@@ -32,6 +32,7 @@ env/
 *.onnx
 *.msgpack
 huggingface/
+test_*.sh
 
 # ---------------------------------------------------
 # 5. IDEs and OS Files

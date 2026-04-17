@@ -1,28 +1,80 @@
 import torch
+import transformers.processing_utils
+import transformers.utils
+import transformers.models.auto.auto_factory as auto_factory
 from transformers import AutoTokenizer, AutoModelForMaskedLM
+
+# ====================================================================
+# THE "GHOST IMPORT" PATCHES (For Locked Transformers Environments)
+# ====================================================================
+# 1. Fake the 'Unpack' typing feature
+if getattr(transformers.processing_utils, "Unpack", None) is None:
+    class DummyUnpack:
+        def __getitem__(self, item): return item
+    transformers.processing_utils.Unpack = DummyUnpack()
+
+# 2. Fake the TransformersKwargs dictionary
+if getattr(transformers.utils, "TransformersKwargs", None) is None:
+    transformers.utils.TransformersKwargs = dict
+
+# 3. Fake the Flex Attention checker (Forces standard attention)
+if getattr(transformers.utils, "is_torch_flex_attn_available", None) is None:
+    transformers.utils.is_torch_flex_attn_available = lambda: False
+
+# 4. Bypass the strict config_class Registration Error
+if not hasattr(auto_factory._BaseAutoModelClass, "_dvd_register_patched"):
+    original_register = auto_factory._BaseAutoModelClass.register
+
+    @classmethod
+    def patched_register(cls, config_class, model_class, exist_ok=False):
+        # Temporarily overwrite the internal name so the strict check passes
+        saved_config = getattr(model_class, "config_class", None)
+        model_class.config_class = config_class
+        try:
+            return original_register.__func__(cls, config_class, model_class, exist_ok=exist_ok)
+        finally:
+            # Put it back exactly how we found it
+            if saved_config is not None:
+                model_class.config_class = saved_config
+
+    auto_factory._BaseAutoModelClass.register = patched_register
+    auto_factory._BaseAutoModelClass._dvd_register_patched = True
+# ====================================================================
+
 
 def load_mdlm_model(model_id="dllm-hub/Qwen2.5-Coder-0.5B-Instruct-diffusion-mdlm-v0.1"):
     print(f"      -> [MDLM ADAPTER] Loading Diffusion Model '{model_id}'...")
-    tokenizer = AutoTokenizer.from_pretrained(model_id, trust_remote_code=True)
+    
+    # Bypass the Rust tokenization error by using the identical Qwen2 vocab
+    tokenizer = AutoTokenizer.from_pretrained(
+        "Qwen/Qwen2-0.5B-Instruct",  
+        trust_remote_code=True
+    )
     
     model = AutoModelForMaskedLM.from_pretrained(
         model_id, 
         trust_remote_code=True, 
-        torch_dtype=torch.bfloat16
+        torch_dtype=torch.bfloat16,
+        low_cpu_mem_usage=False
     )
     
-    # MDLM models based on Qwen often hide the mask token ID
-    # Verify it here. If tokenizer.mask_token_id is None, we find it manually.
-    if tokenizer.mask_token_id is None:
-        # For Qwen-based MDLM, it's often the last token or a specific reserved token
-        tokenizer.mask_token = "<|mask|>" 
-        # If the above fails, check the config for 'mask_token_id'
+    if getattr(tokenizer, "mask_token_id", None) is None:
+        tokenizer.add_special_tokens({'mask_token': '<|mask|>'}) 
         
-    # ARCHITECTURE PATCH: 
-    # This specific model requires the layers to be set to full_attention
-    layers = getattr(model.model, "layers", []) if hasattr(model, "model") else getattr(model, "layers", [])
+    # ==========================================================
+    # ARCHITECTURE PATCH for MDLM
+    # ==========================================================
+    base_model = getattr(model, "model", model)
+    
+    # 1. Inject the missing sliding layers flag so the forward pass doesn't crash
+    if not hasattr(base_model, "has_sliding_layers"):
+        base_model.has_sliding_layers = False
+        
+    # 2. Force full attention (Your existing patch)
+    layers = getattr(base_model, "layers", [])
     for layer in layers:
         setattr(layer, "attention_type", "full_attention")
+    # ==========================================================
 
     if torch.cuda.is_available():
         model = model.cuda()
