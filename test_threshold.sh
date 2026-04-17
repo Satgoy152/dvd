@@ -1,4 +1,8 @@
 #!/bin/bash
+set -e
+
+export HF_HOME="/nfs/turbo/coe-jjparkcv-medium/satyam/.cache/huggingface"
+
 # A quick end-to-end integration test to verify the threshold algorithm loop logic
 
 # Test 1: Strict Threshold (0.99) - Should reject almost all drafter tokens and fallback to normal model
