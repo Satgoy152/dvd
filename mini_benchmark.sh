@@ -11,6 +11,7 @@ TASK="gsm8k"
 LIMIT=2            # Evaluates on just 2 examples (very fast)
 STEPS=5            # Small step limit
 GEN_LENGTH=16      # Short generation length
+NUM_FEWSHOT=5      # Few-shot examples
 # ----------------------------------------------
 
 echo "Running rapid test for algorithm: $ALGORITHM"
@@ -24,6 +25,7 @@ python scripts/run_evals.py \
   --limit "$LIMIT" \
   --steps "$STEPS" \
   --gen_length "$GEN_LENGTH" \
+  --num_fewshot "$NUM_FEWSHOT" \
   --output_file "mini_benchmark_out.json"
 
 echo "Mini benchmark complete! Check eval_results/mini_benchmark_out.json for metrics."

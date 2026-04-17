@@ -4,6 +4,7 @@
 TASKS="gsm8k"
 LIMIT=10 # For speed of benchmarking script. Adjust for real evaluations.
 GEN_LENGTH=64
+NUM_FEWSHOT=5
 STEPS_ARR=(10 20 30)
 
 VERIFIER="llada_8b_instruct"
@@ -22,6 +23,7 @@ for steps in "${STEPS_ARR[@]}"; do
       --limit "$LIMIT" \
       --steps "$steps" \
       --gen_length "$GEN_LENGTH" \
+      --num_fewshot "$NUM_FEWSHOT" \
       --output_file "baseline_${steps}steps.json"
 done
 
@@ -36,6 +38,7 @@ for steps in "${STEPS_ARR[@]}"; do
       --limit "$LIMIT" \
       --steps "$steps" \
       --gen_length "$GEN_LENGTH" \
+      --num_fewshot "$NUM_FEWSHOT" \
       --output_file "threshold_${steps}steps.json"
 done
 
@@ -50,6 +53,7 @@ for steps in "${STEPS_ARR[@]}"; do
       --limit "$LIMIT" \
       --steps "$steps" \
       --gen_length "$GEN_LENGTH" \
+      --num_fewshot "$NUM_FEWSHOT" \
       --output_file "topk_${steps}steps.json"
 done
 
