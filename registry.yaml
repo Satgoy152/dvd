@@ -12,3 +12,8 @@ available_models:
     tokenizer_func: "llada_tokenize"
     gen_func: "llada_generate"
     model_id: "GSAI-ML/LLaDA-8B-Instruct"
+available_algorithms:
+  - name: "baseline_cascade"
+    path: "./algorithms/baseline.py"
+    step_func: "run_step"
+

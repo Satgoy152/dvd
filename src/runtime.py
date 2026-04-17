@@ -1,48 +1,6 @@
 import torch
 
-
-def sample_verifier(logits, tokens, mask_id, gen_length, steps):
-    """Unmask the top gen_length//steps most confident masked tokens each step.
-
-    Args:
-        logits: (batch, seq_len, vocab_size) model output logits.
-        tokens: (batch, seq_len) current token ids (some are mask_id).
-        mask_id: the id used for masked positions.
-        gen_length: total number of tokens to generate.
-        steps: total number of diffusion steps.
-
-    Returns:
-        Updated tokens tensor with the top-K masked positions replaced by
-        the model's most confident predictions.
-    """
-    if gen_length % steps != 0:
-        raise ValueError(
-            f"gen_length ({gen_length}) must be evenly divisible by steps ({steps})"
-        )
-
-    tokens_per_step = gen_length // steps
-
-    # Confidence = max logit value at each position
-    confidence = logits.max(dim=-1).values          # (batch, seq_len)
-    predicted_ids = logits.argmax(dim=-1)            # (batch, seq_len)
-
-    # Only consider positions that are currently masked
-    mask_positions = tokens == mask_id               # (batch, seq_len)
-
-    # Zero out confidence for non-masked positions so they are never selected
-    confidence = confidence.masked_fill(~mask_positions, float('-inf'))
-
-    # Select the top-K most confident masked positions
-    _, topk_indices = confidence.topk(tokens_per_step, dim=-1)  # (batch, K)
-
-    # Unmask those positions with the predicted token ids
-    updated_tokens = tokens.clone()
-    updated_tokens.scatter_(1, topk_indices, predicted_ids.gather(1, topk_indices))
-
-    return updated_tokens
-
-
-def run(drafter, verifier, known_args, custom_kwargs):
+def run(drafter, verifier, algorithm_func, known_args, custom_kwargs):
     steps = int(custom_kwargs["steps"])
     gen_length = int(custom_kwargs["gen_length"])
     mask_id = int(custom_kwargs.get("mask_id", 126336))
@@ -60,24 +18,37 @@ def run(drafter, verifier, known_args, custom_kwargs):
     )
     current_tokens[:, :prompt_len] = prompt_ids.to(device)
 
-    for s in range(steps):
-        step_kwargs = dict(custom_kwargs, steps=s + 1)  # non-zero → adapter uses input as-is
+    # Initialize aggregate metrics
+    aggregated_metrics = {
+        "drafter_nfe": 0,
+        "verifier_nfe": 0
+    }
 
-        # Step C: Verifier runs a forward pass on the current sequence
-        verifier_output = verifier.generate(
-            input_toks={"input_ids": current_tokens},
+    print(f"\n[SYSTEM] Starting generation loop for {steps} steps...\n")
+
+    for s in range(steps):
+        step_kwargs = dict(custom_kwargs)
+        
+        # Call the user-provided algorithm
+        output = algorithm_func(
+            current_tokens=current_tokens,
+            drafter=drafter,
+            verifier=verifier,
+            step_idx=s,
+            total_steps=steps,
             **step_kwargs
         )
-        print(f"\n[SYSTEM] Verifier step {s+1}/{steps} done\n")
+        
+        current_tokens = output.get("next_tokens", current_tokens)
+        metrics = output.get("metrics", {})
+        
+        for k, v in metrics.items():
+            if k in aggregated_metrics:
+                aggregated_metrics[k] += v
+            else:
+                aggregated_metrics[k] = v
 
-        # Step D: Unmask the top-K most confident masked tokens
-        current_tokens = sample_verifier(
-            verifier_output["logits"],
-            current_tokens,
-            mask_id,
-            gen_length,
-            steps,
-        )
+        print(f"[SYSTEM] Step {s+1}/{steps} done. Metrics this step: {metrics}")
 
     # Decode final output (only the generated portion after the prompt)
     tokenizer = verifier.model_state["tokenizer"]
@@ -86,3 +57,10 @@ def run(drafter, verifier, known_args, custom_kwargs):
     print("\n=== FINAL VERIFIED OUTPUT ===")
     print(f"Prompt: {known_args.prompt}")
     print(f"Output: {final_text}")
+    print(f"Aggregated Metrics: {aggregated_metrics}")
+    
+    return {
+        "text": final_text,
+        "tokens": current_tokens,
+        "metrics": aggregated_metrics
+    }
