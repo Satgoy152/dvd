@@ -8,7 +8,7 @@ export HF_HOME="/nfs/turbo/coe-jjparkcv-medium/satyam/.cache/huggingface"
 echo "Starting DVD Speculative Baseline Run..."
 
 python main.py \
-  --drafter "llada_8b_base" \
+  --drafter "llada_8b_instruct" \
   --verifier "llada_8b_instruct" \
   --algorithm "baseline_cascade" \
   --prompt "Give me a short story for a 5 year old" \
