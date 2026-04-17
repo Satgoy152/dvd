@@ -27,3 +27,5 @@ python scripts/run_evals.py \
   --output_file "mini_benchmark_out.json"
 
 echo "Mini benchmark complete! Check eval_results/mini_benchmark_out.json for metrics."
+
+python scripts/plot_metrics.py
