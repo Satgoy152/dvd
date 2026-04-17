@@ -15,4 +15,5 @@ python main.py \
   --output_dir "baseline_output" \
   --tokenizer_max_len 256 \
   --gen_length 256 \
-  --steps 32
+  --steps 32 \
+  --batch_size 1

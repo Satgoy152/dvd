@@ -1,7 +1,6 @@
 from lm_eval.api.model import LM
 from lm_eval.api.instance import Instance
 import torch
-from dataclasses import dataclass
 
 # Update sys.path to allow absolute imports from src
 import sys
@@ -19,6 +18,7 @@ class DVD_LM(LM):
         algorithm_name: str,
         steps: int = 10,
         gen_length: int = 64,
+        batch_size: int = 1,
         registry_path: str = "registry.yaml",
         **kwargs
     ):
@@ -26,9 +26,15 @@ class DVD_LM(LM):
         
         self.steps = steps
         self.gen_length = gen_length
-        self.custom_kwargs = {"steps": steps, "gen_length": gen_length, **kwargs}
+        self.batch_size = batch_size
+        self.custom_kwargs = {
+            "steps": steps,
+            "gen_length": gen_length,
+            "batch_size": batch_size,
+            **kwargs,
+        }
         
-        print(f"[DVD EVAL] Initializing DVD LM Wrapper...")
+        print(f"[DVD EVAL] Initializing DVD LM Wrapper (batch_size={batch_size})...")
         self.registry = ModelRegistry(registry_path)
         
         d_mod, d_conf = self.registry.load_model(drafter_name)
@@ -44,35 +50,30 @@ class DVD_LM(LM):
     def generate_until(self, requests) -> list[str]:
         """
         Executes generation for a batch of requests (each request has `args=(context, until)`).
+        Uses the batched runtime to process all requests together.
         """
-        res = []
-        for request in requests:
-            # We mock the known_args exactly as CLI does
-            @dataclass
-            class DummyArgs:
-                prompt: str
-            
-            prompt_text = request.args[0]
-            known_args = DummyArgs(prompt=prompt_text)
-            
-            # Run the DVD inference mechanism
-            output = run(
-                drafter=self.drafter,
-                verifier=self.verifier,
-                algorithm_func=self.algorithm_func,
-                known_args=known_args,
-                custom_kwargs=self.custom_kwargs
-            )
-            
-            # Track aggregate metrics across requests
-            for k, v in output["metrics"].items():
-                self.total_aggregated_metrics[k] = self.total_aggregated_metrics.get(k, 0) + v
-            self.total_aggregated_metrics["request_count"] = self.total_aggregated_metrics.get("request_count", 0) + 1
-                
-            res.append(output["text"])
-            
-        print(f"[DVD EVAL] Batch Complete. Progress Metrics: {self.total_aggregated_metrics}")
-        return res
+        # Collect all prompts from the request batch
+        batch_prompts = [request.args[0] for request in requests]
+
+        # Run batched DVD inference
+        output = run(
+            drafter=self.drafter,
+            verifier=self.verifier,
+            algorithm_func=self.algorithm_func,
+            prompts=batch_prompts,
+            custom_kwargs=self.custom_kwargs,
+        )
+
+        # Track aggregate metrics across all generate_until calls
+        for k, v in output["aggregated_metrics"].items():
+            self.total_aggregated_metrics[k] = self.total_aggregated_metrics.get(k, 0) + v
+        self.total_aggregated_metrics["request_count"] = (
+            self.total_aggregated_metrics.get("request_count", 0) + len(batch_prompts)
+        )
+
+        texts = [r["text"] for r in output["results"]]
+        print(f"[DVD EVAL] Batch of {len(texts)} complete. Progress Metrics: {self.total_aggregated_metrics}")
+        return texts
 
     def loglikelihood(self, requests) -> list[tuple[float, bool]]:
         """

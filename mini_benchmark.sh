@@ -15,6 +15,7 @@ LIMIT=20
 STEPS=64            # Small step limit
 GEN_LENGTH=256      # Short generation length
 NUM_FEWSHOT=0      # Few-shot examples
+BATCH_SIZE=1        # Number of samples per batch
 # ----------------------------------------------
 
 echo "Running rapid test for algorithm: $ALGORITHM"
@@ -29,6 +30,7 @@ python scripts/run_evals.py \
   --steps "$STEPS" \
   --gen_length "$GEN_LENGTH" \
   --num_fewshot "$NUM_FEWSHOT" \
+  --batch_size "$BATCH_SIZE" \
   --output_file "mini_benchmark_out.json"
 
 echo "Mini benchmark complete! Check eval_results/mini_benchmark_out.json for metrics."

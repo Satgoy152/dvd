@@ -21,11 +21,28 @@ def main():
     parser.add_argument("--limit", type=int, default=None, help="Limit number of examples per task to evaluate")
     parser.add_argument("--steps", type=int, default=10, help="Number of generation steps")
     parser.add_argument("--gen_length", type=int, default=64, help="Number of tokens to generate")
-    parser.add_argument("--swap_models_each_step", action="store_true", help="Offload to CPU aggressively to simulate single-GPU constraints")
+    parser.add_argument("--batch_size", type=int, default=1, help="Batch size for lm-eval (keep 1 unless runtime supports batched generation)")
     parser.add_argument("--output_file", type=str, default=None, help="Custom output JSON name")
-    args = parser.parse_args()
+    args, extra_args = parser.parse_known_args()
+    
+    # Parse extra algorithm-specific args (e.g. --threshold 0.5) into a dict
+    extra_kwargs = {}
+    i = 0
+    while i < len(extra_args):
+        if extra_args[i].startswith("--"):
+            key = extra_args[i].lstrip("-")
+            if i + 1 < len(extra_args) and not extra_args[i + 1].startswith("--"):
+                extra_kwargs[key] = extra_args[i + 1]
+                i += 2
+            else:
+                extra_kwargs[key] = True
+                i += 1
+        else:
+            i += 1
 
     print(f"[{args.algorithm}] Starting evaluation on tasks: {args.tasks}")
+    if extra_kwargs:
+        print(f"[{args.algorithm}] Extra algorithm kwargs: {extra_kwargs}")
     
     # Initialize the DVD_LM Wrapper
     model = DVD_LM(
@@ -34,8 +51,9 @@ def main():
         algorithm_name=args.algorithm,
         steps=args.steps,
         gen_length=args.gen_length,
-        swap_models_each_step=args.swap_models_each_step,
-        registry_path=os.path.join(os.path.dirname(__file__), "..", "registry.yaml")
+        batch_size=args.batch_size,
+        registry_path=os.path.join(os.path.dirname(__file__), "..", "registry.yaml"),
+        **extra_kwargs
     )
 
     t0 = time.time()
@@ -45,7 +63,7 @@ def main():
         model=model,
         tasks=args.tasks.split(","),
         num_fewshot=args.num_fewshot,
-        batch_size=1, # DVD generates sequences currently best tested with BS=1
+        batch_size=args.batch_size,
         limit=args.limit
     )
     
