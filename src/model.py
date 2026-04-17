@@ -1,4 +1,5 @@
 import inspect
+import torch
 
 class ModelBroker:
     def __init__(self, module, config, role="Model"):

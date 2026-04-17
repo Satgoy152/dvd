@@ -41,3 +41,5 @@ huggingface/
 .idea/
 .DS_Store
 Thumbs.db
+eval_results/
+test_output/
