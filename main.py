@@ -41,8 +41,12 @@ def main():
     # Output file
     parser.add_argument("--output_dir", type=str, default=None, help="Output directory to save results. If not provided, results are not saved.")
     
+    parser.add_argument("--verbose", action="store_true", help="Print detailed step-by-step traces")
+    
     known_args, unknown_args = parser.parse_known_args()
     custom_kwargs = parse_dynamic_kwargs(unknown_args)
+    if known_args.verbose:
+        custom_kwargs["verbose"] = True
 
     registry = ModelRegistry("registry.yaml")
     
@@ -76,7 +80,11 @@ def main():
                 else:
                     prompts.append(line)
 
-    print(f"\n[SYSTEM] Commencing Speculative Run with custom kwargs: {custom_kwargs}\n")
+    print(f"\n[SYSTEM] Commencing Speculative Run...")
+    print(f"         -> Drafter: {known_args.drafter}")
+    print(f"         -> Verifier: {known_args.verifier}")
+    print(f"         -> Algorithm: {known_args.algorithm}")
+    print(f"         -> Custom Kwargs: {custom_kwargs}")
     print(f"[SYSTEM] Total prompts to process: {len(prompts)}\n")
 
     output_filepath = None
