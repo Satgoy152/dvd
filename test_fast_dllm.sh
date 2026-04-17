@@ -7,9 +7,9 @@ set -e
 echo "Starting DVD Speculative Baseline Run..."
 
 python main.py \
-  --drafter "mdlm_instruct" \
-  --verifier "mdlm_instruct" \
-  --algorithm "baseline_cascade_MDLM" \
+  --drafter "fast_dllm" \
+  --verifier "fast_dllm" \
+  --algorithm "baseline_cascade_fastdllm" \
   --prompt "Give me a short story for a 5 year old" \
   --output_dir "baseline_output" \
   --tokenizer_max_len 256 \

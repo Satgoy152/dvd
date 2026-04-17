@@ -13,6 +13,13 @@ available_models:
     gen_func: "llada_generate"
     model_id: "GSAI-ML/LLaDA-8B-Instruct"
 
+  - name: "llada_1.5"
+    path: "./adapters/llada_adapter.py"
+    init_func: "load_llada_model"
+    tokenizer_func: "llada_tokenize"
+    gen_func: "llada_generate"
+    model_id: "GSAI-ML/LLaDA-1.5"
+
   - name: "mdlm_instruct"
     path: "./adapters/mdlm_adapter.py"
     init_func: "load_mdlm_model"
@@ -20,10 +27,25 @@ available_models:
     gen_func: "mdlm_generate"
     model_id: "dllm-hub/Qwen2.5-Coder-0.5B-Instruct-diffusion-mdlm-v0.1"
 
-    
+  - name: "dream_7b"
+    path: "./adapters/dream_adapter.py"
+    init_func: "load_dream_model"
+    tokenizer_func: "dream_tokenize"
+    gen_func: "dream_generate"
+    model_id: "Dream-org/Dream-v0-Instruct-7B"
+
 available_algorithms:
+
   - name: "baseline_cascade"
     path: "./algorithms/baseline.py"
+    step_func: "run_step"
+
+  - name: "baseline_cascade_MDLM"
+    path: "./algorithms/baseline_MDLM.py"
+    step_func: "run_step"
+
+  - name: "baseline_cascade_dream"
+    path: "./algorithms/baseline_dream.py"
     step_func: "run_step"
 
   - name: "threshold_verifier"
